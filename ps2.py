@@ -196,6 +196,7 @@ class ps2Arena (Framework):
             shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -2*6*0.0254 ), (-8*6*0.0254, -2*6*0.0254)])
         )
         
+        self.world.gravity = (0.0, 0.0)
         # ground0 = self.world.CreateStaticBody(
         #     position=(0,7*6*0.0254),
         #     shapes=b2PolygonShape(box=(14*6*0.0254, 0.0254/4))
@@ -228,12 +229,12 @@ class ps2Arena (Framework):
         radius = 2*0.0254
         density = 0.1
         restitution = 0.0
-        self.body = self.world.CreateDynamicBody(position=(0, 0), fixtures=b2FixtureDef(shape=b2CircleShape(radius=radius), density=density, restitution=restitution))
+        self.body = self.world.CreateDynamicBody(position=(-6*6*0.0254, 0), fixtures=b2FixtureDef(shape=b2CircleShape(radius=radius), density=density, restitution=restitution))
+
 
     def Keyboard(self, key):
         if not self.body:
             return
-
         if key == Keys.K_w:
             f = self.body.GetWorldVector(localVector=(0.0, -0.005))
             p = self.body.GetWorldPoint(localPoint=(0.0, 0.005))
