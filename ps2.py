@@ -1,7 +1,7 @@
 from Box2D.Box2D import b2PolygonShape
 from Box2D.examples.framework import (Framework, Keys, main)
 from Box2D import (b2World, b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape,
-                   b2Transform, b2Mul,
+                   b2Transform, b2Mul, b2Vec2,
                    b2_pi)
 from Box2D import *
 
@@ -203,8 +203,8 @@ class ps2Arena (Framework):
         self.body = self.world.CreateDynamicBody(position=(7.5*6*0.0254, 1.5*6*0.0254), fixtures=b2FixtureDef(shape=b2CircleShape(radius=radius), density=density, restitution=restitution))
         
         self.world.gravity=(0,0)
-        # damping parameter
-        self.body.linearDamping = 0.9
+        self.body.linearDamping = 10
+        self.body.angulaarDamping = 10
 
     def Keyboard(self, key):
         
@@ -227,7 +227,10 @@ class ps2Arena (Framework):
             f = self.body.GetWorldVector(localVector=(0.0, -0.005))
             p = self.body.GetWorldPoint(localPoint=(0.0, 0.00))
             self.body.ApplyForce(f, p, True)
-
+        else:
+            p = self.body.GetWorldPoint(localPoint=(0.0, 0.00))
+            self.body.linearVelocity(-1)
+            # self.body.angularVelocity()
         
 
 if __name__ == "__main__":
