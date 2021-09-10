@@ -219,7 +219,6 @@ class ps2Arena (Framework):
             f = self.body.GetWorldVector(localVector=(-0.005, 0.0))
             p = self.body.GetWorldPoint(localPoint=(0.0, 0.00))
             self.body.ApplyForce(f, p, True)
-            print('1') 
         elif key == Keys.K_d:
             f = self.body.GetWorldVector(localVector=(0.005, 0.0))
             p = self.body.GetWorldPoint(localPoint=(0.0, 0.00))
@@ -234,7 +233,6 @@ class ps2Arena (Framework):
         if key == Keys.K_a or key == Keys.K_w or key == Keys.K_d or key == Keys.K_s:
             self.body.linearVelocity=(0,0)
             self.body.angularVelocity=(0)
-            print('aup')
 
 
 if __name__ == "__main__":
