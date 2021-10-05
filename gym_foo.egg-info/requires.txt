@@ -1,0 +1,4 @@
+gym
+numpy
+Box2D
+pygame
