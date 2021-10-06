@@ -48,13 +48,36 @@ class grid(gym.Env):
         self.epsilon = self.radius/12
         self.target_pos = np.random.uniform(-40*0.0254,40*0.0254,(8,2))
 
-        cnt = 0
-        for i in self.target_pos:
-            if ((i[0]<32*self.unit and i[0]>16*self.unit) or (i[0]<8*self.unit and i[0]>-8*self.unit) or (i[0]<-16*self.unit and i[0]>-32*self.unit)):
-                if ((i[1]<32*self.unit and i[1]>16*self.unit) or (i[1]<8*self.unit and i[1]>-8*self.unit) or (i[1]<-16*self.unit and i[1]>-32*self.unit)):
-                    i[0]=i[0]+ 7*self.unit
+
+        """cnt = 0
+        run = True
+        res = [False for i in range(8)]
+
+        while run :
+            for i,j in zip(self.target_pos,res):
+                if ((i[0]<=32*self.unit and i[0]>=16*self.unit) or (i[0]<=8*self.unit and i[0]>= -8*self.unit) or (i[0]<= -16*self.unit and i[0]>= -32*self.unit)):
+                    if ((i[1]<= 32*self.unit and i[1]>= 16*self.unit) or (i[1]<= 8*self.unit and i[1]>= -8*self.unit) or (i[1]<= -16*self.unit and i[1]>= -32*self.unit)):
+                        i = np.random.uniform(-40*0.0254,40*0.0254,2)
+                        #print(i)
+                    else:
+                        j = True
                 else:
-                    cnt = cnt+1
+                    j = True
+            if res == [True for k in range(8)]:
+                run = False"""
+           
+           
+
+
+
+
+
+
+        for i in self.target_pos:
+            if ((i[0]<=32*self.unit and i[0]>=16*self.unit) or (i[0]<=8*self.unit and i[0]>= -8*self.unit) or (i[0]<= -16*self.unit and i[0]>= -32*self.unit)):
+                if ((i[1]<= 32*self.unit and i[1]>= 16*self.unit) or (i[1]<= 8*self.unit and i[1]>= -8*self.unit) or (i[1]<= -16*self.unit and i[1]>= -32*self.unit)):
+                    i[0]=i[0] - 8*self.unit
+                
                     
                 
 
@@ -140,9 +163,9 @@ class grid(gym.Env):
         #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
                             #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
 
-        self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(-8*0.0254,0),(-7.5*6*0.0254, -1.5*6*0.0254),
-                            (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
-        
+        #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(-8*0.0254,0),(-7.5*6*0.0254, -1.5*6*0.0254),
+                            #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
+        self.initial_pos = self.target_pos
 
         #self.target_pos = (0,0)
 
