@@ -6,7 +6,7 @@ from bezier import calc_4points_bezier_path
 import gym_grid
 env = gym.make('grid-v0')
 
-print(np.random.uniform(-40*0.0254,40*0.0254,(8,2)))
+#print(np.random.uniform(-40*0.0254,40*0.0254,(8,2)))
 
 
 
