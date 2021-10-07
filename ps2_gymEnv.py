@@ -29,7 +29,6 @@ show_animation = True
 epsilon=0.01
 n_points=500
 scalar_force=0.005
-
 collision_reward=-100
 
 class ContactDetector(contactListener):
@@ -71,6 +70,7 @@ class grid(gym.Env):
         self.ppm = 240
         self.velocity=0.2
         self.path=np.zeros(shape=(self.num_agents,n_points,2))
+        self.path_done=np.zeros(shape=(self.num_agents,n_points))
 
         self.time_step = 1./self.fps*self.sfr
 
@@ -158,6 +158,9 @@ class grid(gym.Env):
         self.reward=0
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
+        for i in range(0,num_agents):
+            self.agents[i].linearDamping = 0.25
+            self.agents[i].angularDamping = 0.25
 
     def walls(self):
         # upper lower wall
@@ -478,6 +481,7 @@ class grid(gym.Env):
         new_path=self.bezier_path(self.path[index,n_points-1,0],self.path[index,n_points-1,1],new_target[0],new_target[1], control_points)
 
         self.path[index,:,:]=new_path[:,:]
+        self.path_done[index,:]=np.zeros(shape=(n_points))
    
 
     def render(self, mode='human',close=False):
@@ -495,21 +499,33 @@ class grid(gym.Env):
         self.clock.tick(self.fps)
 
     def step(self):
-
+        steps=0
         for i in range(0,self.num_agents):
             for t in self.path[i]:
-                if ((t[0]-self.path[i,n_points-1,0])**2 + (t[1]-self.path[i,n_points-1,1])**2 < epsilon**2):
+                if ((t[0]-self.path[i,n_points-1,0])**2 + (t[1]-self.path[i,n_points-1,1])**2 <= epsilon**2):
 
                     # keep update new target here
                     self.update_path(i,new_target) 
 
-                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2):
+                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 <= epsilon**2 and self.path_done[i,t]==0):
+                    self.path_done[i,t]=1
+                    break
+
+                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2 and self.path_done[i,t]==0):
                     dis=sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
 
                     f = self.agents[i].GetWorldVector(localVector=(scalar_force*(t[0]-self.agents[i].position[0])/dis,(scalar_force*t[1]-self.agents[i].position[1])/dis))
                     p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
                     self.agents[i].ApplyForce(f, p, True)
                     break
+
+        self.world.Step(self.time_step,10,10)
+        if steps%self.sfr == 0:
+            self.render() 
+        steps = (steps+1)
+        if steps*self.time_step > 30:
+            raise RuntimeError("environment timestep exceeded 30 seconds")
+
 
     def get_reward(self):
 
