@@ -24,11 +24,35 @@ from Box2D.b2 import (
     revoluteJointDef,
     contactListener,
 )
-
+num_agents=8
 show_animation = True
 epsilon=0.01
 n_points=500
 scalar_force=0.005
+
+collision_reward=-100
+
+class ContactDetector(contactListener):
+
+    def __init__(self, env):
+        contactListener.__init__(self)
+        self.env=env
+
+    def BeginContact(self,contact):
+
+        for i in range(0,num_agents):
+            if(self.env.agents[i] == contact.fixtureA.body or self.env.body == contact.fixtureB.body):
+                self.reward+=collision_reward
+                if(self.collide[i]):
+                    self.reward+=collision_reward
+                self.collide[i]=1
+
+    def EndContact(self, contact):
+
+        for i in range(0,num_agents):
+            if self.env.agents[i] in [contact.fixtureA.body, contact.fixture.body]:
+                self.collide[i]=0
+
 class grid(gym.Env):
    
     
@@ -482,19 +506,21 @@ class grid(gym.Env):
                 elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2):
                     dis=sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
 
-                    f = self.agents[i].GetWorldVector(localVector=((t[0]-self.agents[i].position[0])/dis,(t[1]-self.agents[i].position[1])/dis))
+                    f = self.agents[i].GetWorldVector(localVector=(scalar_force*(t[0]-self.agents[i].position[0])/dis,(scalar_force*t[1]-self.agents[i].position[1])/dis))
                     p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
                     self.agents[i].ApplyForce(f, p, True)
                     break
 
+    def get_reward(self):
 
+        self.world.contactListener=ContactDetector(self)
 
     def close(self):
         pygame.quit()
 
 
 
-# if __name__ == '__main__':
-#     env=grid()
-#     env.reset()
-#    env.bezier_path()
+if __name__ == '__main__':
+    env=grid()
+    env.reset()
+    env.bezier_path()
