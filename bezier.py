@@ -5,7 +5,7 @@ import scipy.special
 show_animation = True
 
 
-def calc_4points_bezier_path(sx, sy, syaw, ex, ey, eyaw, offset):
+def calc_4points_bezier_path(sx, sy, syaw, ex, ey, eyaw, offset,n_points):
     """
     Compute control points and path given start and end position.
     :param sx: (float) x-coordinate of the starting point
@@ -23,8 +23,9 @@ def calc_4points_bezier_path(sx, sy, syaw, ex, ey, eyaw, offset):
          [sx + dist * np.cos(syaw), sy + dist * np.sin(syaw)],
          [ex - dist * np.cos(eyaw), ey - dist * np.sin(eyaw)],
          [ex, ey]])
+    
 
-    path = calc_bezier_path(control_points, n_points=150)
+    path = calc_bezier_path(control_points, n_points)
 
     return path, control_points
 
