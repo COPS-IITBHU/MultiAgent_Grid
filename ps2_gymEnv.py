@@ -3,7 +3,7 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-from math import sqrt
+from math import sqrt, cos, sin
 import matplotlib.pyplot as plt
 import scipy.special
 import pygame
@@ -28,7 +28,7 @@ num_agents=8
 show_animation = True
 epsilon=0.01
 n_points=500
-scalar_force=0.005
+scalar_force=0.000005
 collision_reward=-100
 
 class ContactDetector(contactListener):
@@ -95,35 +95,35 @@ class grid(gym.Env):
         circleShape.draw =draw_agents
 
         
-    def step(self, action):
+    # def step(self, action):
 
-        running = True
-        steps=0
-        while running:
+    #     running = True
+    #     steps=0
+    #     while running:
 
-            '''for event in pygame.event.get():
-                if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-                # The user closed the window or pressed escape
-                    running = False'''
+    #         '''for event in pygame.event.get():
+    #             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+    #             # The user closed the window or pressed escape
+    #                 running = False'''
 
-            self.obs = []
-            for i in range(0,self.num_agents):
-                f = self.agents[i].GetWorldVector(localVector=action[i])
-                p = self.agents[i].GetWorldPoint(localPoint=(0.0 , 0.0))
-                self.agents[i].ApplyForce(f, p, True)
-                self.obs.append([self.agents[i].position[0],self.agents[i].position[1],self.agents[i].linearVelocity[0],self.agents[i].linearVelocity[1]])
+    #         self.obs = []
+    #         for i in range(0,self.num_agents):
+    #             f = self.agents[i].GetWorldVector(localVector=action[i])
+    #             p = self.agents[i].GetWorldPoint(localPoint=(0.0 , 0.0))
+    #             self.agents[i].ApplyForce(f, p, True)
+    #             self.obs.append([self.agents[i].position[0],self.agents[i].position[1],self.agents[i].linearVelocity[0],self.agents[i].linearVelocity[1]])
                 
             
-            print(self.obs)
-            print('_________________________________')
+    #         print(self.obs)
+    #         print('_________________________________')
               
 
-            self.world.Step(self.time_step,10,10)
-            if steps%self.sfr == 0:
-                self.render() 
-            steps = (steps+1)
-            if steps*self.time_step > 30:
-                raise RuntimeError("environment timestep exceeded 30 seconds")
+    #         self.world.Step(self.time_step,10,10)
+    #         if steps%self.sfr == 0:
+    #             self.render() 
+    #         steps = (steps+1)
+    #         if steps*self.time_step > 30:
+    #             raise RuntimeError("environment timestep exceeded 30 seconds")
 
             
 
@@ -159,8 +159,8 @@ class grid(gym.Env):
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
         for i in range(0,num_agents):
-            self.agents[i].linearDamping = 0.25
-            self.agents[i].angularDamping = 0.25
+            self.agents[i].linearDamping = 0.5
+            self.agents[i].angularDamping = 0.5
 
     def walls(self):
         # upper lower wall
@@ -501,20 +501,27 @@ class grid(gym.Env):
     def step(self):
         steps=0
         for i in range(0,self.num_agents):
+            temp=0
             for t in self.path[i]:
-                if ((t[0]-self.path[i,n_points-1,0])**2 + (t[1]-self.path[i,n_points-1,1])**2 <= epsilon**2):
+                if ((self.agents[i].position[0]-self.path[i,n_points-1,0])**2 + (self.agents[i].position[1]-self.path[i,n_points-1,1])**2 <= epsilon**2):
 
                     # keep update new target here
                     self.update_path(i,new_target) 
 
-                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 <= epsilon**2 and self.path_done[i,t]==0):
-                    self.path_done[i,t]=1
+                if((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 <= epsilon**2 and self.path_done[i,temp]==0):
+                    self.path_done[i,temp]=1
+                    temp+=1
                     break
 
-                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2 and self.path_done[i,t]==0):
+                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2 and self.path_done[i,temp]==0):
                     dis=sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
-
-                    f = self.agents[i].GetWorldVector(localVector=(scalar_force*(t[0]-self.agents[i].position[0])/dis,(scalar_force*t[1]-self.agents[i].position[1])/dis))
+                    angle=self.agents[i].angle
+                    x=(t[0]-self.agents[i].position[0])/dis
+                    y=(t[1]-self.agents[i].position[1])/dis
+                    new_x=x*cos(angle)+y*sin(angle)
+                    new_y=y*cos(angle)-x*sin(angle)
+                    # f = self.agents[i].GetWorldVector(localVector=(scalar_force*(t[0]-self.agents[i].position[0])/dis,(scalar_force*t[1]-self.agents[i].position[1])/dis))
+                    f = self.agents[i].GetWorldVector(localVector=(scalar_force*new_x,scalar_force*new_y))
                     p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
                     self.agents[i].ApplyForce(f, p, True)
                     break
@@ -536,7 +543,7 @@ class grid(gym.Env):
 
 
 
-if __name__ == '__main__':
-    env=grid()
-    env.reset()
-    env.bezier_path()
+# if __name__ == '__main__':
+#     env=grid()
+#     env.reset()
+#     env.bezier_path()
