@@ -22,6 +22,16 @@ points = np.random.uniform(-40*0.0254,40*0.0254,(8))
 env.step()
 env.reset()
 env.step()
+env.reset()
+env.step()
+env.reset()
+env.step()
+env.reset()
+env.step()
+env.reset()
+env.step()
+env.reset()
+env.step()
 
 
 

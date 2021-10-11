@@ -34,7 +34,7 @@ class ContactDetector(contactListener):
         self.env=env
 
     def BeginContact(self,contact):
-        print("collision!")
+        #print("collision!")
         self.env.reward =  self.env.reward - 10
         
 
@@ -53,8 +53,8 @@ class grid(gym.Env):
         self.density = 1.0
         self.force_scale = 0.001
         self.restitution = 0
-        self.max_velocity = 0.005
-        self.max_force = 0.005
+        self.max_velocity = 0.01
+        self.max_force = 0.01
         self.fps = 60
         self.sfr = 1
         self.screen_height = 600
@@ -62,8 +62,8 @@ class grid(gym.Env):
         self.viewer = None
         self.ppm = 240
         self.screen=None
-        self.epsilon = self.radius/16
-        self.n_points = 1000
+        self.epsilon = self.radius/4
+        self.n_points = 1200
         #self.target_pos = np.random.uniform(-40*self.unit,40*self.unit,(8,2))
         self.scalar_force = 1
         
@@ -84,12 +84,18 @@ class grid(gym.Env):
             shape=(self.num_agents,2)    
         )
 
+            
+
+
+
+                 
+
 
         
 
         def draw_line(line, body, fixture):
 
-            shape = fixture.shape         
+            shape = fixture.shape   
             vertices = [(body.transform * v+b2Vec2(1.7,1.25)) * self.ppm for v in shape.vertices]          
             vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
             pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
@@ -120,17 +126,41 @@ class grid(gym.Env):
             return True
         else:
             return False"""
-            
+
+
+    def draw_marker(self):
+
+            for i in self.target_pos:
+                vertices = [(i+b2Vec2(1.7,1.25)+b2Vec2(-self.epsilon,-self.epsilon))*self.ppm,(i+b2Vec2(1.7,1.25)+b2Vec2(self.epsilon,self.epsilon))*self.ppm]
+                
+                vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
+                pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
+
+            for i in self.target_pos:
+                vertices = [(i+b2Vec2(1.7,1.25)+b2Vec2(-self.epsilon,self.epsilon))*self.ppm,(i+b2Vec2(1.7,1.25)+b2Vec2(self.epsilon,-self.epsilon))*self.ppm]
+                
+                vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
+                pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
+
+    def draw_path(self):
+
+        for ind_path in self.path_a:
+            for i in ind_path:
+                position = (i +b2Vec2(1.7,1.25) ) * self.ppm
+                position = (position[0], self.screen_height - position[1])
+                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
+
+        
+
+
+
+
     def step(self):
 
         #for i in range(8):
             #self.path[i] = calc_bezier_path(self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i])
 
-        for i in range(8):
-            temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1, self.n_points)
-            self.path[i] = temp[0]
-        #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path      
-        self.path = np.transpose(self.path, (1, 0, 2)) 
+        
         running = True
         steps=0
         cnt = 0
@@ -142,9 +172,9 @@ class grid(gym.Env):
 
             for agent,destination in zip(self.agents,self.path[self.iter]):
                 delta = b2Vec2(destination) - agent.position
-                if delta.length <= self.epsilon:
+                if delta.length <= self.epsilon/8:
                     agent.linearVelocity = (0,0)
-                    
+                    self.status()
                     continue
                 finished = False
                 direction = delta/delta.length
@@ -153,7 +183,7 @@ class grid(gym.Env):
                 force = force_mag*direction
                 agent.ApplyForce(force = force,point=agent.position,wake=True)
                 self.iter = self.iter + 1
-                print(self.reward)
+                #print(self.reward)
                 if self.iter == self.n_points-1 :
                     finished = True
                     break
@@ -176,7 +206,7 @@ class grid(gym.Env):
             if i == 1:
                 self.reward = self.reward + 1
 
-        print(self.status())
+        
         
         
         """for i in range(0,self.num_agents):
@@ -335,7 +365,13 @@ class grid(gym.Env):
         self.target_pos = target
 
         self.path = np.zeros((8,self.n_points,2))
-        self.path_done=np.zeros(shape=(self.num_agents,self.n_points))
+        for i in range(8):
+            temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.15, self.target_pos[i][0],self.target_pos[i][1], 0.15, 3, self.n_points)
+            self.path[i] = temp[0]
+        #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path  
+        self.path_a =self.path    
+        self.path = np.transpose(self.path, (1, 0, 2)) 
+        
 
     
 
@@ -541,6 +577,11 @@ class grid(gym.Env):
         for body in self.world.bodies:
             for fixture in body.fixtures:
                 fixture.shape.draw(body,fixture)
+
+        self.draw_marker()
+        #self.draw_path()
+
+        
 
         
 
