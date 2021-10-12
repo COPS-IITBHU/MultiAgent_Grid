@@ -3,11 +3,15 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-from math import sqrt, cos, sin
-import matplotlib.pyplot as plt
-import scipy.special
+import math
+
+from pyrsistent.typing import PVector
+from bezier import calc_bezier_path,calc_4points_bezier_path
+
+import time
+from pyrsistent import v, pvector
 import pygame
-from pygame.locals import(QUIT,KEYDOWN,K_ESCAPE)
+from pygame.locals import(QUIT,KEYDOWN,K_ESCAPE,K_RIGHT,K_LEFT,K_UP,K_DOWN)
 
 import Box2D
 from Box2D.Box2D import b2PolygonShape
@@ -24,12 +28,6 @@ from Box2D.b2 import (
     revoluteJointDef,
     contactListener,
 )
-num_agents=8
-show_animation = True
-epsilon=0.01
-n_points=500
-scalar_force=0.000005
-collision_reward=-100
 
 class ContactDetector(contactListener):
 
@@ -38,19 +36,12 @@ class ContactDetector(contactListener):
         self.env=env
 
     def BeginContact(self,contact):
+        #print("collision!")
+        self.env.reward =  self.env.reward - 10
+        
 
-        for i in range(0,num_agents):
-            if(self.env.agents[i] == contact.fixtureA.body or self.env.body == contact.fixtureB.body):
-                self.reward+=collision_reward
-                if(self.collide[i]):
-                    self.reward+=collision_reward
-                self.collide[i]=1
 
-    def EndContact(self, contact):
 
-        for i in range(0,num_agents):
-            if self.env.agents[i] in [contact.fixtureA.body, contact.fixture.body]:
-                self.collide[i]=0
 
 class grid(gym.Env):
    
@@ -60,26 +51,54 @@ class grid(gym.Env):
     def __init__(self):
         self.num_agents = 8
         self.radius = 2 * 0.0254
+        self.unit = 0.0254
         self.density = 1.0
+        self.force_scale = 0.001
         self.restitution = 0
-        self.fps = 50
+        self.max_velocity = 0.01
+        self.max_force = 0.01
+        self.fps = 60
         self.sfr = 1
         self.screen_height = 600
         self.screen_width = 800
         self.viewer = None
         self.ppm = 240
-        self.velocity=0.2
-        self.path=np.zeros(shape=(self.num_agents,n_points,2))
-        self.path_done=np.zeros(shape=(self.num_agents,n_points))
-
+        self.screen=None
+        self.epsilon = self.radius/4
+        self.n_points = 1200
+        #self.target_pos = np.random.uniform(-40*self.unit,40*self.unit,(8,2))
+        self.scalar_force = 1
+        self.p_pid = 5
+        self.d_pid = 5
         self.time_step = 1./self.fps*self.sfr
+
+        high_a = np.array([[(45.0*self.unit,40.0*self.unit),(45.0*self.unit,40.0*self.unit)] for i in range(self.num_agents)])
+        high_b = np.array([(45.0*self.unit,40.0*self.unit) for i in range(self.num_agents)])
+
+        self.action_space = spaces.Box(-high_a,high_a,
+        dtype=np.float64,
+        shape=(self.num_agents,2,2)    
+            )
+        
+        self.observation_space = spaces.Box(
+            -high_b,
+            high_b,
+            dtype=np.float64,
+            shape=(self.num_agents,2)    
+        )
+
+            
+
+
+
+                 
 
 
         
 
         def draw_line(line, body, fixture):
 
-            shape = fixture.shape         
+            shape = fixture.shape   
             vertices = [(body.transform * v+b2Vec2(1.7,1.25)) * self.ppm for v in shape.vertices]          
             vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
             pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
@@ -95,35 +114,211 @@ class grid(gym.Env):
         circleShape.draw =draw_agents
 
         
-    # def step(self, action):
 
-    #     running = True
-    #     steps=0
-    #     while running:
 
-    #         '''for event in pygame.event.get():
-    #             if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-    #             # The user closed the window or pressed escape
-    #                 running = False'''
+    def status(self):
+        cnt = 0
+        list = np.zeros((8))
+        for i in range(8):
+            if math.sqrt((self.agents[i].position[0]-self.target_pos[i][0])**2 + (self.agents[i].position[1]-self.target_pos[i][1])**2)<=  self.epsilon :
+                #cnt = cnt+1
+                list[i] = 1
+        return list
 
-    #         self.obs = []
-    #         for i in range(0,self.num_agents):
-    #             f = self.agents[i].GetWorldVector(localVector=action[i])
-    #             p = self.agents[i].GetWorldPoint(localPoint=(0.0 , 0.0))
-    #             self.agents[i].ApplyForce(f, p, True)
-    #             self.obs.append([self.agents[i].position[0],self.agents[i].position[1],self.agents[i].linearVelocity[0],self.agents[i].linearVelocity[1]])
+        """if cnt == 8 :
+            return True
+        else:
+            return False"""
+
+
+    def draw_marker(self):
+
+            for i in self.target_pos:
+                vertices = [(i+b2Vec2(1.7,1.25)+b2Vec2(-self.epsilon,-self.epsilon))*self.ppm,(i+b2Vec2(1.7,1.25)+b2Vec2(self.epsilon,self.epsilon))*self.ppm]
+                
+                vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
+                pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
+
+            for i in self.target_pos:
+                vertices = [(i+b2Vec2(1.7,1.25)+b2Vec2(-self.epsilon,self.epsilon))*self.ppm,(i+b2Vec2(1.7,1.25)+b2Vec2(self.epsilon,-self.epsilon))*self.ppm]
+                
+                vertices = [(v[0], self.screen_height - v[1]) for v in vertices]
+                pygame.draw.line(self.screen, (	57, 255, 20,255),vertices[0],vertices[1],width=1)
+
+    def draw_path(self):
+
+        for ind_path in self.path_a:
+            for i in ind_path:
+                position = (i +b2Vec2(1.7,1.25) ) * self.ppm
+                position = (position[0], self.screen_height - position[1])
+                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
+
+        
+
+
+
+
+    def step(self):
+
+        #for i in range(8):
+            #self.path[i] = calc_bezier_path(self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i])
+
+        
+        running = True
+        steps=0
+        cnt = 0
+        finished = False
+        #print(self.path[self.iter])
+        #print(self.initial_pos)
+        while not finished:
+            finished = True
+
+            for agent,destination in zip(self.agents,self.path[self.iter]):
+                delta = b2Vec2(destination) - agent.position
+                if delta.length <= self.epsilon/8:
+                    agent.linearVelocity = (0,0)
+                    self.status()
+                    continue
+                finished = False
+                direction = delta/delta.length
+                vel_mag = agent.linearVelocity.length * direction.dot(agent.linearVelocity)
+                force_mag = self.max_force*(1 - vel_mag/self.max_velocity)
+                force = force_mag*direction
+                # perpendicular_velo = np.cross(agent.linearVelocity,delta)/delta.length
+                # parallel_velo = np.dot(agent.linearVelocity,delta)/delta.length
+                # print(perpendicular_velo**2 + parallel_velo**2)
+                # print(agent.linearVelocity.length**2)
+                # print("------------")
+                # time.sleep(1)
+                # P = self.p_pid*delta.length
+                # D = self.d_pid*perpendicular_velo
+
+                max_speed = 1*min(0.05,2*delta.length)
+                max_force = 0.05
+                desired = max_speed*(delta/delta.length)
+                steer = desired - agent.linearVelocity
+                steer = max_force*(steer/steer.length)
+                
+
+                agent.ApplyForce(force = steer,point=agent.position,wake=True)
+                self.iter = self.iter + 1
+                #print(self.reward)
+                if self.iter == self.n_points-1 :
+                    finished = True
+                    break
+                
+                
+
+                self.world.Step(self.time_step,10,10)
+            if steps%self.sfr == 0:
+                self.render() 
+            steps = (steps+1)
+            if steps*self.time_step > 30:
+                raise RuntimeError("environment timestep exceeded 30 seconds")
+        self.world.Step(self.time_step,10,10)
+        self.world.ClearForces()
+        observation = np.array([np.array(agent.position) for agent in self.agents])
+        status = self.status()
+        if all(self.status()):
+            done = True
+        for i in status:
+            if i == 1:
+                self.reward = self.reward + 1
+
+        
+        
+        
+        """for i in range(0,self.num_agents):
+                for t in self.path[i]:
+                    if ((t[0]-self.path[i,self.n_points-1,0])**2 + (t[1]-self.path[i,self.n_points-1,1])**2 < self.epsilon**2):
+
+                    # keep update new target here
+                        #self.update_path(i,new_target)
+                        cnt = cnt + 1 
+
+
+                    elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > self.epsilon**2):
+                            dis=math.sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
+
+                            f = self.agents[i].GetWorldVector(localVector=((t[0]-self.agents[i].position[0])/dis,(t[1]-self.agents[i].position[1])/dis))
+                            p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
+                            self.agents[i].ApplyForce(f, p, True)
+                            break
+            if cnt == 8 :
+                running = False"""
+
+
+        """for t in self.path:
+                for i in range(0,self.num_agents):
+                    if ((t[i][0]-self.path[self.n_points-1,i,0])**2 + (t[i][1]-self.path[self.n_points-1,i,1])**2 < self.epsilon**2):
+
+                    # keep update new target here
+                        #self.update_path(i,new_target)
+                        cnt = cnt + 1 
+
+
+                    elif((t[i][0]-self.agents[i].position[0])**2 + (t[i][1]-self.agents[i].position[1])**2 > self.epsilon**2):
+                            dis=math.sqrt((t[i][0]-self.agents[i].position[0])**2 + (t[i][1]-self.agents[i].position[1])**2)*1000
+
+                            f = self.agents[i].GetWorldVector(localVector=((t[i][0]-self.agents[i].position[0])/dis,(t[i][1]-self.agents[i].position[1])/dis))
+                            p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
+                            self.agents[i].ApplyForce(f, p, True)"""
+            
+        """for i in range(0,self.num_agents):    working
+                temp=0
+                for t in self.path[i]:
+                    if((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 <= self.epsilon**2 and self.path_done[i,temp]==0):
+                        self.path_done[i,temp]=1
+                        temp+=1
+                        #break
+                        
+
+                    elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > self.epsilon**2 and self.path_done[i,temp]==0):
+                        dis=math.sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
+
+                        f = self.agents[i].GetWorldVector(localVector=((t[0]-self.agents[i].position[0])/dis,(t[1]-self.agents[i].position[1])/dis))*self.scalar_force
+                        p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
+                        self.agents[i].ApplyForce(f, p, True)
+                        break"""
+            
+            
+
+                            
+                       
+        """if res == 8 :
+                running = False
+
+            self.world.Step(self.time_step,10,10)
+            if steps%self.sfr == 0:
+                self.render() 
+            steps = (steps+1)
+            if steps*self.time_step > 30:
+                raise RuntimeError("environment timestep exceeded 30 seconds")"""
+
+
+
+        
+            
+
+
+                
+        """obs = []
+            for i in range(0,self.num_agents):
+            f = self.agents[i].GetWorldVector(localVector=action[i])
+            p = self.agents[i].GetWorldPoint(localPoint=(0.0 , 0.0))
+            self.agents[i].ApplyForce(f, p, True)
+            obs.append([self.agents[i].position[0],self.agents[i].position[1],self.agents[i].linearVelocity[0],self.agents[i].linearVelocity[1]])"""
+            
+                
                 
             
-    #         print(self.obs)
-    #         print('_________________________________')
-              
+            
+            #print(self.status())
+            #print('_________________________________')
+                       
 
-    #         self.world.Step(self.time_step,10,10)
-    #         if steps%self.sfr == 0:
-    #             self.render() 
-    #         steps = (steps+1)
-    #         if steps*self.time_step > 30:
-    #             raise RuntimeError("environment timestep exceeded 30 seconds")
+            
+            
 
             
 
@@ -134,33 +329,71 @@ class grid(gym.Env):
 
     def reset(self):
 
-        self.screen=None
-        self.world = world(gravity=(0,0))
+        
+        self.world = world(gravity=(0,0),contactListener=ContactDetector(self))
 
         self.walls()
         # Initial position of bots
         self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
                             (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
 
+        #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(-8*0.0254,0),(-7.5*6*0.0254, -1.5*6*0.0254),
+                            #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
+        #self.initial_pos = self.target_pos
+
+        #self.target_pos = (0,0)
+
         # deploy bots
-        self.body1 = self.world.CreateDynamicBody(position=self.initial_pos[0], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body2 = self.world.CreateDynamicBody(position=self.initial_pos[1], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body0 = self.world.CreateDynamicBody(position=self.initial_pos[2], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        self.body0 = self.world.CreateDynamicBody(position=self.initial_pos[0], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        self.body1 = self.world.CreateDynamicBody(position=self.initial_pos[1], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        self.body2 = self.world.CreateDynamicBody(position=self.initial_pos[2], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
         self.body3 = self.world.CreateDynamicBody(position=self.initial_pos[3], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
         self.body4 = self.world.CreateDynamicBody(position=self.initial_pos[4], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
         self.body5 = self.world.CreateDynamicBody(position=self.initial_pos[5], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
         self.body6 = self.world.CreateDynamicBody(position=self.initial_pos[6], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
         self.body7 = self.world.CreateDynamicBody(position=self.initial_pos[7], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
 
-        self.body7.linearVelocity = (1,0)
+        #self.body7.linearVelocity = (1,0)
 
         self.agents=[self.body0,self.body1,self.body2,self.body3,self.body4,self.body5,self.body6,self.body7]
         self.reward=0
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
-        for i in range(0,num_agents):
-            self.agents[i].linearDamping = 0.5
-            self.agents[i].angularDamping = 0.5
+        self.iter = 1
+        self.reward = 0
+        
+        row1 = [((-36 + 12 * i) * self.unit, 36 * self.unit) for i in range(7)]
+        row2 = [((-36 + 24 * i) * self.unit, 24 * self.unit) for i in range(4)]
+        row3 = [((-36 + 12 * i) * self.unit, 12 * self.unit) for i in range(7)]
+        row4 = [((-36 + 24 * i) * self.unit, 0 * self.unit) for i in range(4)]
+        row5 = [((-36 + 12 * i) * self.unit, -12 * self.unit) for i in range(7)]
+        row6 = [((-36 + 24 * i) * self.unit, -24 * self.unit) for i in range(4)]
+        row7 = [((-36 + 12 * i) * self.unit, -36 * self.unit) for i in range(7)]
+
+        self.grid_centres = row1 + row2 + row3 + row4 + row5 + row6 + row7
+        
+
+        target = np.zeros((8,2))
+
+        grid_num = np.random.choice(40,8,replace=False)
+        for i in range(8):
+            target[i] = self.grid_centres[grid_num[i]]
+            target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
+            target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
+
+        self.target_pos = target
+
+        self.path = np.zeros((8,self.n_points,2))
+        for i in range(8):
+            temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.15, self.target_pos[i][0],self.target_pos[i][1], 0.15, 3, self.n_points)
+            self.path[i] = temp[0]
+        #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path  
+        self.path_a =self.path    
+        self.path = np.transpose(self.path, (1, 0, 2)) 
+        
+
+    
+
 
     def walls(self):
         # upper lower wall
@@ -172,7 +405,7 @@ class grid(gym.Env):
         )
         # middle
         ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 1*6*0.0254 ), (1*6*0.0254, 1*6*0.0254)])
+            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 1*6*0.0254 ), (1*6*0.0254, 1*6*0.0254)])#12 * 0.0254
         )
         ground3 = self.world.CreateStaticBody(
             shapes=b2EdgeShape(vertices=[(-1*6*0.0254, -1*6*0.0254 ), (1*6*0.0254, -1*6*0.0254)])
@@ -349,140 +582,8 @@ class grid(gym.Env):
         
 
     
+    
         
-    def calc_4points_bezier_path(self, sx, sy, ex, ey,control_points, offset):
-
-        dist = np.hypot(sx - ex, sy - ey) / offset
-        # control_points = np.array(
-        #     [[sx, sy],
-        #      [sx + dist * np.cos(syaw), sy + dist * np.sin(syaw)],
-        #      [ex - dist * np.cos(eyaw), ey - dist * np.sin(eyaw)],
-        #      [ex, ey]])
-        # control_points = np.array(
-        #         [[sx,sy],
-        #         [3,-3],
-        #         [4,5],
-        #         [5,10],
-        #         [ex,ey]])
-
-        path = self.calc_bezier_path(control_points, n_points=500)
-
-        return path, control_points
-
-
-    def calc_bezier_path(self, control_points, n_points=500):
-        """
-        Compute bezier path (trajectory) given control points.
-
-        :param control_points: (numpy array)
-        :param n_points: (int) number of points in the trajectory
-        :return: (numpy array)
-        """
-        traj = []
-        for t in np.linspace(0, 1, n_points):
-            traj.append(self.bezier(t, control_points))
-
-        return np.array(traj)
-
-
-    def bernstein_poly(self, n, i, t):
-        """
-        Bernstein polynom.
-
-        :param n: (int) polynom degree
-        :param i: (int)
-        :param t: (float)
-        :return: (float)
-        """
-        return scipy.special.comb(n, i) * t ** i * (1 - t) ** (n - i)
-
-
-    def bezier(self, t, control_points):
-        """
-        Return one point on the bezier curve.
-
-        :param t: (float) number in [0, 1]
-        :param control_points: (numpy array)
-        :return: (numpy array) Coordinates of the point
-        """
-        n = len(control_points) - 1
-        return np.sum([self.bernstein_poly(n, i, t) * control_points[i] for i in range(n + 1)], axis=0)
-
-
-    def bezier_derivatives_control_points(self, control_points, n_derivatives):
-        """
-        Compute control points of the successive derivatives of a given bezier curve.
-
-        A derivative of a bezier curve is a bezier curve.
-        See https://pomax.github.io/bezierinfo/#derivatives
-        for detailed explanations
-
-        :param control_points: (numpy array)
-        :param n_derivatives: (int)
-        e.g., n_derivatives=2 -> compute control points for first and second derivatives
-        :return: ([numpy array])
-        """
-        w = {0: control_points}
-        for i in range(n_derivatives):
-            n = len(w[i])
-            w[i + 1] = np.array([(n - 1) * (w[i][j + 1] - w[i][j])
-                                for j in range(n - 1)])
-        return w
-
-
-    def curvature(self, dx, dy, ddx, ddy):
-        """
-        Compute curvature at one point given first and second derivatives.
-
-        :param dx: (float) First derivative along x axis
-        :param dy: (float)
-        :param ddx: (float) Second derivative along x axis
-        :param ddy: (float)
-        :return: (float)
-        """
-        return (dx * ddy - dy * ddx) / (dx ** 2 + dy ** 2) ** (3 / 2)
-
-
-    def bezier_path(self, start_x, start_y, end_x, end_y, control_points):
-        """Show the effect of the offset."""
-        start_x = 100.0  # [m]
-        start_y = 10.0  # [m]
-        start_yaw = np.radians(180.0)  # [rad]
-
-        end_x = -0.0  # [m]
-        end_y = 2.0  # [m]
-        end_yaw = np.radians(-45.0)  # [rad]
-
-        for offset in np.arange(1.0, 5.0, 1.0):
-            path, control_points = self.calc_4points_bezier_path(
-                start_x, start_y, end_x, end_y, control_points, offset)
-            assert path.T[0][0] == start_x, "path is invalid"
-            assert path.T[1][0] == start_y, "path is invalid"
-            assert path.T[0][-1] == end_x, "path is invalid"
-            assert path.T[1][-1] == end_y, "path is invalid"
-
-            if show_animation:  # pragma: no cover
-                plt.plot(path.T[0], path.T[1], label="Offset=" + str(offset))
-
-        if show_animation:  # pragma: no cover
-            # self.plot_arrow(start_x, start_y, start_yaw)
-            # self.plot_arrow(end_x, end_y, end_yaw)
-            plt.legend()
-            plt.axis("equal")
-            plt.grid(True)
-            plt.show()
-        print(path)
-        return path
-
-
-    def update_path(self,index,new_target):
-
-        # get bezier points here
-        new_path=self.bezier_path(self.path[index,n_points-1,0],self.path[index,n_points-1,1],new_target[0],new_target[1], control_points)
-
-        self.path[index,:,:]=new_path[:,:]
-        self.path_done[index,:]=np.zeros(shape=(n_points))
-   
 
     def render(self, mode='human',close=False):
         if self.screen is None:
@@ -495,55 +596,22 @@ class grid(gym.Env):
         for body in self.world.bodies:
             for fixture in body.fixtures:
                 fixture.shape.draw(body,fixture)
+
+        self.draw_marker()
+        #self.draw_path()
+
+        
+
+        
+
+        
+        
+        
         pygame.display.flip()
         self.clock.tick(self.fps)
 
-    def step(self):
-        steps=0
-        for i in range(0,self.num_agents):
-            temp=0
-            for t in self.path[i]:
-                if ((self.agents[i].position[0]-self.path[i,n_points-1,0])**2 + (self.agents[i].position[1]-self.path[i,n_points-1,1])**2 <= epsilon**2):
+        
 
-                    # keep update new target here
-                    self.update_path(i,new_target) 
-
-                if((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 <= epsilon**2 and self.path_done[i,temp]==0):
-                    self.path_done[i,temp]=1
-                    temp+=1
-                    break
-
-                elif((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2 > epsilon**2 and self.path_done[i,temp]==0):
-                    dis=sqrt((t[0]-self.agents[i].position[0])**2 + (t[1]-self.agents[i].position[1])**2)
-                    angle=self.agents[i].angle
-                    x=(t[0]-self.agents[i].position[0])/dis
-                    y=(t[1]-self.agents[i].position[1])/dis
-                    new_x=x*cos(angle)+y*sin(angle)
-                    new_y=y*cos(angle)-x*sin(angle)
-                    # f = self.agents[i].GetWorldVector(localVector=(scalar_force*(t[0]-self.agents[i].position[0])/dis,(scalar_force*t[1]-self.agents[i].position[1])/dis))
-                    f = self.agents[i].GetWorldVector(localVector=(scalar_force*new_x,scalar_force*new_y))
-                    p = self.agents[i].GetWorldPoint(localPoint=(0.0, 0.00))
-                    self.agents[i].ApplyForce(f, p, True)
-                    break
-
-        self.world.Step(self.time_step,10,10)
-        if steps%self.sfr == 0:
-            self.render() 
-        steps = (steps+1)
-        if steps*self.time_step > 30:
-            raise RuntimeError("environment timestep exceeded 30 seconds")
-
-
-    def get_reward(self):
-
-        self.world.contactListener=ContactDetector(self)
 
     def close(self):
         pygame.quit()
-
-
-
-# if __name__ == '__main__':
-#     env=grid()
-#     env.reset()
-#     env.bezier_path()
