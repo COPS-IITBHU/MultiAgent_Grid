@@ -13,7 +13,7 @@ from pygame.locals import(QUIT,KEYDOWN,K_ESCAPE,K_RIGHT,K_LEFT,K_UP,K_DOWN)
 
 import Box2D
 from Box2D.Box2D import b2PolygonShape
-from Box2D import (b2World, b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape, b2ContactListener,
+from Box2D import (b2World, b2CircleShape, b2EdgeShape, b2FixtureDef, b2PolygonShape, b2ContactListener, b2RayCastCallback,
                    b2Transform, b2Mul, b2Vec2,
                    b2_pi)
 #from Box2D.b2 import (world,polygonShape,circleShape,staticBody,dynamicBody,vec2)
@@ -27,6 +27,37 @@ from Box2D.b2 import (
     contactListener,
 )
 
+class RayCastClosestCallback(b2RayCastCallback):
+    """This callback finds the closest hit"""
+
+    def __repr__(self):
+        return 'Closest hit'
+
+    def __init__(self, **kwargs):
+        b2RayCastCallback.__init__(self, **kwargs)
+        self.fixture = None
+        self.hit = False
+
+    def ReportFixture(self, fixture, point, normal, fraction):
+        '''
+        Called for each fixture found in the query. You control how the ray
+        proceeds by returning a float that indicates the fractional length of
+        the ray. By returning 0, you set the ray length to zero. By returning
+        the current fraction, you proceed to find the closest point. By
+        returning 1, you continue with the original ray clipping. By returning
+        -1, you will filter out the current fixture (the ray will not hit it).
+        '''
+        self.hit = True
+        self.fixture = fixture
+        self.point = b2Vec2(point)
+        self.normal = b2Vec2(normal)
+        # NOTE: You will get this error:
+        #   "TypeError: Swig director type mismatch in output value of
+        #    type 'float32'"
+        # without returning a value
+        return fraction
+
+
 class ContactDetector(contactListener):
 
     def __init__(self, env):
@@ -35,7 +66,16 @@ class ContactDetector(contactListener):
 
     def BeginContact(self,contact):
         #print("collision!")
-        self.env.reward =  self.env.reward - 10
+        if contact.fixtureA.body.userData != None :
+            self.env.reward[contact.fixtureA.body.userData] -= 10
+
+        if contact.fixtureB.body.userData != None :
+            self.env.reward[contact.fixtureB.body.userData] -= 10
+
+        
+        #print(contact.fixtureA.body.userData)
+        #print(contact.fixtureB.body.userData)
+        #self.env.reward =  self.env.reward - 10
         
 
 
@@ -63,7 +103,8 @@ class grid(gym.Env):
         self.ppm = 240
         self.screen=None
         self.epsilon = self.radius/4
-        self.n_points = 1200
+        self.n_points = 800
+        self.call_back = RayCastClosestCallback()
         #self.target_pos = np.random.uniform(-40*self.unit,40*self.unit,(8,2))
         self.scalar_force = 1
         
@@ -84,7 +125,8 @@ class grid(gym.Env):
             shape=(self.num_agents,2)    
         )
 
-            
+        
+
 
 
 
@@ -127,6 +169,20 @@ class grid(gym.Env):
         else:
             return False"""
 
+    def path_status(self):                          #check colliding points on the path
+        cnt = 1
+        for i in range(len(self.path_a[0])):
+            self.world.RayCast(self.call_back,b2Vec2(self.path_a[0][i-1]),b2Vec2(self.path_a[0][i]))
+            """if self.call_back.hit :
+                #print("HIT")
+                print(cnt)
+                print(self.call_back.point)
+                cnt = cnt + 1"""
+            if ((self.call_back.point[0]-self.path_a[0][i-1][0])**2 + (self.call_back.point[1]-self.path_a[0][i-1][1])**2) < 1.21 * self.radius * self.radius  :  #to ensure a clearance of 1.1r from any walls
+                print(cnt)
+                cnt = cnt + 1
+                
+
 
     def draw_marker(self):
 
@@ -144,11 +200,16 @@ class grid(gym.Env):
 
     def draw_path(self):
 
-        for ind_path in self.path_a:
+        """for ind_path in self.path_a:
             for i in ind_path:
                 position = (i +b2Vec2(1.7,1.25) ) * self.ppm
                 position = (position[0], self.screen_height - position[1])
+                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))"""
+        for i in self.path_a[0]:
+                position = (i +b2Vec2(1.7,1.25) ) * self.ppm
+                position = (position[0], self.screen_height - position[1])
                 pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
+        
 
         
 
@@ -180,7 +241,7 @@ class grid(gym.Env):
                 direction = delta/delta.length
                 vel_mag = agent.linearVelocity.length * direction.dot(agent.linearVelocity)
                 force_mag = self.max_force*(1 - vel_mag/self.max_velocity)
-                force = force_mag*direction
+                force = force_mag*direction  
                 agent.ApplyForce(force = force,point=agent.position,wake=True)
                 self.iter = self.iter + 1
                 #print(self.reward)
@@ -202,9 +263,9 @@ class grid(gym.Env):
         status = self.status()
         if all(self.status()):
             done = True
-        for i in status:
-            if i == 1:
-                self.reward = self.reward + 1
+        #for i in status:
+         #   if i == 1:
+          #      self.reward = self.reward + 1
 
         
         
@@ -337,11 +398,17 @@ class grid(gym.Env):
         #self.body7.linearVelocity = (1,0)
 
         self.agents=[self.body0,self.body1,self.body2,self.body3,self.body4,self.body5,self.body6,self.body7]
-        self.reward=0
+
+
+        self.agent_iter = 0
+        for agent in self.agents:
+            agent.userData = self.agent_iter
+            self.agent_iter = self.agent_iter + 1
+        
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
         self.iter = 1
-        self.reward = 0
+        self.reward = np.zeros((8))
         
         row1 = [((-36 + 12 * i) * self.unit, 36 * self.unit) for i in range(7)]
         row2 = [((-36 + 24 * i) * self.unit, 24 * self.unit) for i in range(4)]
@@ -369,8 +436,13 @@ class grid(gym.Env):
             temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.15, self.target_pos[i][0],self.target_pos[i][1], 0.15, 3, self.n_points)
             self.path[i] = temp[0]
         #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path  
-        self.path_a =self.path    
-        self.path = np.transpose(self.path, (1, 0, 2)) 
+        
+        self.path_a =self.path                               #before transpose : size-> (8,n_points,2)
+        self.path = np.transpose(self.path, (1, 0, 2))       #after transpose  : size-> (n_points,8,2)
+        #print(self.path_a.shape)
+        #print(self.path.shape)
+
+        self.path_status()
         
 
     
@@ -579,7 +651,7 @@ class grid(gym.Env):
                 fixture.shape.draw(body,fixture)
 
         self.draw_marker()
-        #self.draw_path()
+        self.draw_path()
 
         
 

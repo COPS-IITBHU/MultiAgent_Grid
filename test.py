@@ -32,6 +32,3 @@ env.reset()
 env.step()
 env.reset()
 env.step()
-
-
-
