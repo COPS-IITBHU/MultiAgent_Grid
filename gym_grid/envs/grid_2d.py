@@ -172,15 +172,36 @@ class grid(gym.Env):
     def path_status(self):                          #check colliding points on the path
         cnt = 1
         for i in range(len(self.path_a[0])):
-            self.world.RayCast(self.call_back,b2Vec2(self.path_a[0][i-1]),b2Vec2(self.path_a[0][i]))
+            
+            r1 = b2Vec2(self.path_a[0][i])-b2Vec2(self.path_a[0][i-1])
+            #self.world2.RayCast(self.call_back,b2Vec2(self.path_a[0][i-1]),b2Vec2(self.path_a[0][i-1])+ (ray/ray.length)*1.1*self.radius)
+            self.world2.RayCast(self.call_back,b2Vec2(self.path_a[0][i-1]),b2Vec2(self.path_a[0][i]))
+            
             """if self.call_back.hit :
                 #print("HIT")
                 print(cnt)
                 print(self.call_back.point)
                 cnt = cnt + 1"""
-            if ((self.call_back.point[0]-self.path_a[0][i-1][0])**2 + (self.call_back.point[1]-self.path_a[0][i-1][1])**2) < 1.21 * self.radius * self.radius  :  #to ensure a clearance of 1.1r from any walls
+            """if ((self.call_back.point[0]-self.path_a[0][i-1][0])**2 + (self.call_back.point[1]-self.path_a[0][i-1][1])**2) < 1.21 * self.radius * self.radius  :  #to ensure a clearance of 1.1r from any walls
                 print(cnt)
-                cnt = cnt + 1
+                cnt = cnt + 1"""
+            """if self.call_back.hit :
+                ch = str(self.call_back.fixture.shape)
+                #oprint(ch[0:11])
+                if ch[0:11] == "b2EdgeShape":
+                    print(cnt)
+                    cnt = cnt + 1"""
+            if self.call_back.hit :
+                r2 = self.call_back.point-b2Vec2(self.path_a[0][i-1])
+                if r2.length <=r1.length :
+                    print(cnt)
+                    cnt = cnt+1
+
+        print("Done")
+
+            
+
+            
                 
 
 
@@ -373,8 +394,9 @@ class grid(gym.Env):
 
         
         self.world = world(gravity=(0,0),contactListener=ContactDetector(self))
+        self.world2 = world(gravity=(0,0))
 
-        self.walls()
+        self.dummy_walls()
         # Initial position of bots
         self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
                             (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
@@ -428,6 +450,8 @@ class grid(gym.Env):
             target[i] = self.grid_centres[grid_num[i]]
             target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
             target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
+
+        
 
         self.target_pos = target
 
@@ -632,7 +656,200 @@ class grid(gym.Env):
         ground3 = self.world.CreateStaticBody(
             shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -2*6*0.0254 ), (-8*6*0.0254, -2*6*0.0254)])
         )
+
+
+    def dummy_walls(self):
+        # upper lower wall
+        ground = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, 40*0.0254 ), (40*0.0254, 40*0.0254)])
+        )
+        ground1 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, -40*0.0254 ), (40*0.0254, -40*0.0254)])
+        )
+        # middle
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, 1*8*0.0254 ), (1*8*0.0254, 1*8*0.0254)])#12 * 0.0254
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, -1*8*0.0254 ), (1*8*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(1*8*0.0254, 1*8*0.0254 ), (1*8*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, 1*8*0.0254 ), (-1*8*0.0254, -1*8*0.0254)])
+        )
+        # middle top
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, 32*0.0254 ), (1*8*0.0254, 32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, 16*0.0254 ), (1*8*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(1*8*0.0254, 32*0.0254 ), (1*8*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, 32*0.0254 ), (-1*8*0.0254, 16*0.0254)])
+        )
+        # middle low
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, -32*0.0254 ), (1*8*0.0254, -32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, -16*0.0254 ), (1*8*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(1*8*0.0254, -32*0.0254 ), (1*8*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-1*8*0.0254, -32*0.0254 ), (-1*8*0.0254, -16*0.0254)])
+        )
+        # right left
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, 1*8*0.0254 ), (32*0.0254, 1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, -1*8*0.0254 ), (32*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, 1*8*0.0254 ), (16*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(32*0.0254, 1*8*0.0254 ), (32*0.0254, -1*8*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, 1*8*0.0254 ), (-32*0.0254, 1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, -1*8*0.0254 ), (-32*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, 1*8*0.0254 ), (-16*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-32*0.0254, 1*8*0.0254 ), (-32*0.0254, -1*8*0.0254)])
+        )
+        # corner
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, 32*0.0254 ), (32*0.0254, 32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, 16*0.0254 ), (32*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, 32*0.0254 ), (16*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(32*0.0254, 32*0.0254 ), (32*0.0254, 16*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, 32*0.0254 ), (-32*0.0254, 32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, 16*0.0254 ), (-32*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, 32*0.0254 ), (-16*0.0254, 16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-32*0.0254, 32*0.0254 ), (-32*0.0254, 16*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, -32*0.0254 ), (32*0.0254, -32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, -16*0.0254 ), (32*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(16*0.0254, -32*0.0254 ), (16*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(32*0.0254, -32*0.0254 ), (32*0.0254, -16*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, -32*0.0254 ), (-32*0.0254, -32*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, -16*0.0254 ), (-32*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-16*0.0254, -32*0.0254 ), (-16*0.0254, -16*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-32*0.0254, -32*0.0254 ), (-32*0.0254, -16*0.0254)])
+        )
+        # side wall
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, 40*0.0254 ), (40*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, 40*0.0254 ), (-40*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, -40*0.0254 ), (40*0.0254, -10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, -40*0.0254 ), (-40*0.0254, -10*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, 1*8*0.0254 ), (40*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, 1*8*0.0254 ), (-40*0.0254, -1*8*0.0254)])
+        )
+        # chute
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(46*0.0254, 1*8*0.0254 ), (46*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-46*0.0254, 1*8*0.0254 ), (-46*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(46*0.0254, -1*8*0.0254 ), (46*0.0254, -10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-46*0.0254, -1*8*0.0254 ), (-46*0.0254, -10*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, 1*8*0.0254 ), (46*0.0254, 1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, 1*8*0.0254 ), (-46*0.0254, 1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, -1*8*0.0254 ), (46*0.0254, -1*8*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, -1*8*0.0254 ), (-46*0.0254, -1*8*0.0254)])
+        )
+
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, 10*0.0254 ), (46*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, 10*0.0254 ), (-46*0.0254, 10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(40*0.0254, -10*0.0254 ), (46*0.0254, -10*0.0254)])
+        )
+        ground3 = self.world2.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=[(-40*0.0254, -10*0.0254 ), (-46*0.0254, -10*0.0254)])
+        )   
+
         
+
+        
+        
+        """ground.userData = "wall"
+        ground1.userData = "wall"
+        ground3.userData = "wall"""
 
     
     
@@ -646,7 +863,7 @@ class grid(gym.Env):
 
         self.screen.fill((0,0,0,0))
 
-        for body in self.world.bodies:
+        for body in self.world2.bodies:
             for fixture in body.fixtures:
                 fixture.shape.draw(body,fixture)
 
