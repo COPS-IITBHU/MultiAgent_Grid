@@ -46,11 +46,11 @@ class grid(gym.Env):
     
     metadata={'render.modes':['human']}
 
-    def __init__(self):
-        self.num_agents = 8
-        self.radius = 2 * 0.0254
-        self.unit = 0.0254
-        self.density = 1.0
+    def __init__(self, num_agents=9):
+        self.num_agents = num_agents
+        self.unit = 0.0254*1.2
+        self.radius = 0.6 * self.unit
+        self.density = 4*1.0
         self.force_scale = 0.001
         self.restitution = 0
         self.max_velocity = 0.01
@@ -76,6 +76,9 @@ class grid(gym.Env):
         dtype=np.float64,
         shape=(self.num_agents,2,2)    
             )
+
+        self.maps = [self.map1, self.map2, self.map3, self.map4]
+        self.mapind = 0
         
         self.observation_space = spaces.Box(
             -high_b,
@@ -83,16 +86,7 @@ class grid(gym.Env):
             dtype=np.float64,
             shape=(self.num_agents,2)    
         )
-
-            
-
-
-
-                 
-
-
-        
-
+       
         def draw_line(line, body, fixture):
 
             shape = fixture.shape   
@@ -115,8 +109,8 @@ class grid(gym.Env):
 
     def status(self):
         cnt = 0
-        list = np.zeros((8))
-        for i in range(8):
+        list = np.zeros((self.num_agents))
+        for i in range(self.num_agents):
             if math.sqrt((self.agents[i].position[0]-self.target_pos[i][0])**2 + (self.agents[i].position[1]-self.target_pos[i][1])**2)<=  self.epsilon :
                 #cnt = cnt+1
                 list[i] = 1
@@ -155,7 +149,7 @@ class grid(gym.Env):
 
 
 
-    def step(self):
+    def step(self, action):
 
         #for i in range(8):
             #self.path[i] = calc_bezier_path(self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i])
@@ -169,7 +163,8 @@ class grid(gym.Env):
         #print(self.initial_pos)
         while not finished:
             finished = True
-
+            cnt+=1
+            # if cnt>=50:break
             for agent,destination in zip(self.agents,self.path[self.iter]):
                 delta = b2Vec2(destination) - agent.position
                 if delta.length <= self.epsilon/8:
@@ -296,7 +291,7 @@ class grid(gym.Env):
             
             #print(self.status())
             #print('_________________________________')
-                       
+        return 0,0,0,0
 
             
             
@@ -313,30 +308,47 @@ class grid(gym.Env):
         
         self.world = world(gravity=(0,0),contactListener=ContactDetector(self))
 
-        self.walls()
+        self.maps[self.mapind % len(self.maps)]()
+        self.mapind += 1
         # Initial position of bots
-        self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
-                            (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
+        self.initial_pos = []
+        xlen = int(math.sqrt(self.num_agents))
+        for dx in range(xlen):
+            for dy in range(self.num_agents//xlen):
+                self.initial_pos.append(( (-23 + 2.4*dx)*self.unit, (-23 + 2.4*dy)*self.unit ))
+        # self.initial_pos=[(7.5*6*self.unit, 1.5*6*self.unit),(-7.5*6*self.unit, 1.5*6*self.unit),(7.5*6*self.unit, -1.5*6*self.unit),(-7.5*6*self.unit, -1.5*6*self.unit),
+        #                     (6.5*6*self.unit, 2.5*6*self.unit),(-6.5*6*self.unit, 2.5*6*self.unit),(6.5*6*self.unit, -2.5*6*self.unit),(-6.5*6*self.unit, -2.5*6*self.unit)]
 
-        #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(-8*0.0254,0),(-7.5*6*0.0254, -1.5*6*0.0254),
-                            #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
+        #self.initial_pos=[(7.5*6*self.unit, 1.5*6*self.unit),(-7.5*6*self.unit, 1.5*6*self.unit),(-8*self.unit,0),(-7.5*6*self.unit, -1.5*6*self.unit),
+                            #(6.5*6*self.unit, 2.5*6*self.unit),(-6.5*6*self.unit, 2.5*6*self.unit),(6.5*6*self.unit, -2.5*6*self.unit),(-6.5*6*self.unit, -2.5*6*self.unit)]
         #self.initial_pos = self.target_pos
 
         #self.target_pos = (0,0)
 
         # deploy bots
-        self.body0 = self.world.CreateDynamicBody(position=self.initial_pos[0], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body1 = self.world.CreateDynamicBody(position=self.initial_pos[1], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body2 = self.world.CreateDynamicBody(position=self.initial_pos[2], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body3 = self.world.CreateDynamicBody(position=self.initial_pos[3], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body4 = self.world.CreateDynamicBody(position=self.initial_pos[4], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body5 = self.world.CreateDynamicBody(position=self.initial_pos[5], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body6 = self.world.CreateDynamicBody(position=self.initial_pos[6], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
-        self.body7 = self.world.CreateDynamicBody(position=self.initial_pos[7], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        self.bodies = []
+        for i in range(self.num_agents):
+            self.bodies.append(
+                self.world.CreateDynamicBody(position=self.initial_pos[i],
+                                             fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius),
+                                             density=self.density,
+                                             restitution=self.restitution
+                                             )
+                                            )
+            )
+
+        # self.body0 = self.world.CreateDynamicBody(position=self.initial_pos[0], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body1 = self.world.CreateDynamicBody(position=self.initial_pos[1], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body2 = self.world.CreateDynamicBody(position=self.initial_pos[2], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body3 = self.world.CreateDynamicBody(position=self.initial_pos[3], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body4 = self.world.CreateDynamicBody(position=self.initial_pos[4], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body5 = self.world.CreateDynamicBody(position=self.initial_pos[5], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body6 = self.world.CreateDynamicBody(position=self.initial_pos[6], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
+        # self.body7 = self.world.CreateDynamicBody(position=self.initial_pos[7], fixtures=b2FixtureDef(shape=b2CircleShape(radius=self.radius), density=self.density, restitution=self.restitution))
 
         #self.body7.linearVelocity = (1,0)
 
-        self.agents=[self.body0,self.body1,self.body2,self.body3,self.body4,self.body5,self.body6,self.body7]
+        self.agents=[body for body in self.bodies]
         self.reward=0
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
@@ -354,18 +366,20 @@ class grid(gym.Env):
         self.grid_centres = row1 + row2 + row3 + row4 + row5 + row6 + row7
         
 
-        target = np.zeros((8,2))
+        target = np.zeros((self.num_agents,2))
 
-        grid_num = np.random.choice(40,8,replace=False)
-        for i in range(8):
-            target[i] = self.grid_centres[grid_num[i]]
-            target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
-            target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
-
+        # grid_num = np.random.choice(40,self.num_agents,replace=False)
+        # for i in range(self.num_agents):
+        #     target[i] = self.grid_centres[grid_num[i]]
+        #     target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
+        #     target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
+        for i in range(self.num_agents):
+            target[i][0] = np.random.uniform(-25*self.unit, 25*self.unit,1)
+            target[i][1] = np.random.uniform(-25*self.unit, 25*self.unit,1)
         self.target_pos = target
 
-        self.path = np.zeros((8,self.n_points,2))
-        for i in range(8):
+        self.path = np.zeros((self.num_agents,self.n_points,2))
+        for i in range(self.num_agents):
             temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.15, self.target_pos[i][0],self.target_pos[i][1], 0.15, 3, self.n_points)
             self.path[i] = temp[0]
         #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path  
@@ -374,196 +388,117 @@ class grid(gym.Env):
         
 
     
+    def map1(self):
+        vert = [
+            ( -25*self.unit, -25*self.unit ),
+            ( -25*self.unit,  25*self.unit ),
+            (  25*self.unit,  25*self.unit ),
+            (  25*self.unit, -25*self.unit ),
+        ]
 
-
-    def walls(self):
-        # upper lower wall
-        ground = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, 7*6*0.0254 ), (7*6*0.0254, 7*6*0.0254)])
-        )
-        ground1 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -7*6*0.0254 ), (7*6*0.0254, -7*6*0.0254)])
-        )
-        # middle
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 1*6*0.0254 ), (1*6*0.0254, 1*6*0.0254)])#12 * 0.0254
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, -1*6*0.0254 ), (1*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(1*6*0.0254, 1*6*0.0254 ), (1*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 1*6*0.0254 ), (-1*6*0.0254, -1*6*0.0254)])
-        )
-        # middle top
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 5*6*0.0254 ), (1*6*0.0254, 5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 3*6*0.0254 ), (1*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(1*6*0.0254, 5*6*0.0254 ), (1*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, 5*6*0.0254 ), (-1*6*0.0254, 3*6*0.0254)])
-        )
-        # middle low
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, -5*6*0.0254 ), (1*6*0.0254, -5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, -3*6*0.0254 ), (1*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(1*6*0.0254, -5*6*0.0254 ), (1*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-1*6*0.0254, -5*6*0.0254 ), (-1*6*0.0254, -3*6*0.0254)])
-        )
-        # right left
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, 1*6*0.0254 ), (5*6*0.0254, 1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, -1*6*0.0254 ), (5*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, 1*6*0.0254 ), (3*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(5*6*0.0254, 1*6*0.0254 ), (5*6*0.0254, -1*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, 1*6*0.0254 ), (-5*6*0.0254, 1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, -1*6*0.0254 ), (-5*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, 1*6*0.0254 ), (-3*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-5*6*0.0254, 1*6*0.0254 ), (-5*6*0.0254, -1*6*0.0254)])
-        )
-        # corner
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, 5*6*0.0254 ), (5*6*0.0254, 5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, 3*6*0.0254 ), (5*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, 5*6*0.0254 ), (3*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(5*6*0.0254, 5*6*0.0254 ), (5*6*0.0254, 3*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, 5*6*0.0254 ), (-5*6*0.0254, 5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, 3*6*0.0254 ), (-5*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, 5*6*0.0254 ), (-3*6*0.0254, 3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-5*6*0.0254, 5*6*0.0254 ), (-5*6*0.0254, 3*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, -5*6*0.0254 ), (5*6*0.0254, -5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, -3*6*0.0254 ), (5*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(3*6*0.0254, -5*6*0.0254 ), (3*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(5*6*0.0254, -5*6*0.0254 ), (5*6*0.0254, -3*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, -5*6*0.0254 ), (-5*6*0.0254, -5*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, -3*6*0.0254 ), (-5*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-3*6*0.0254, -5*6*0.0254 ), (-3*6*0.0254, -3*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-5*6*0.0254, -5*6*0.0254 ), (-5*6*0.0254, -3*6*0.0254)])
-        )
-        # side wall
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, 7*6*0.0254 ), (7*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, 7*6*0.0254 ), (-7*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, -7*6*0.0254 ), (7*6*0.0254, -2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -7*6*0.0254 ), (-7*6*0.0254, -2*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, 1*6*0.0254 ), (7*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, 1*6*0.0254 ), (-7*6*0.0254, -1*6*0.0254)])
-        )
-        # chute
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(8*6*0.0254, 1*6*0.0254 ), (8*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-8*6*0.0254, 1*6*0.0254 ), (-8*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(8*6*0.0254, -1*6*0.0254 ), (8*6*0.0254, -2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-8*6*0.0254, -1*6*0.0254 ), (-8*6*0.0254, -2*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, 1*6*0.0254 ), (8*6*0.0254, 1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, 1*6*0.0254 ), (-8*6*0.0254, 1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, -1*6*0.0254 ), (8*6*0.0254, -1*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -1*6*0.0254 ), (-8*6*0.0254, -1*6*0.0254)])
-        )
-
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, 2*6*0.0254 ), (8*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, 2*6*0.0254 ), (-8*6*0.0254, 2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(7*6*0.0254, -2*6*0.0254 ), (8*6*0.0254, -2*6*0.0254)])
-        )
-        ground3 = self.world.CreateStaticBody(
-            shapes=b2EdgeShape(vertices=[(-7*6*0.0254, -2*6*0.0254 ), (-8*6*0.0254, -2*6*0.0254)])
-        )
+        for i in range(-1, len(vert)-1):
+            self.world.CreateStaticBody(
+                shapes=b2EdgeShape(vertices=[vert[i], vert[i+1]])
+            )
         
 
+    def map2(self):
+        vert = [
+            ( -25*self.unit, -25*self.unit ),
+            ( -25*self.unit,  25*self.unit ),
+            (  25*self.unit,  25*self.unit ),
+            (  25*self.unit, -25*self.unit ),
+        ]
+
+        for i in range(-1, len(vert)-1):
+            self.world.CreateStaticBody(
+                shapes=b2EdgeShape(vertices=[vert[i-1], vert[i]])
+            )
+        
+        vert_out = [
+            (-4.5*self.unit, -4.5*self.unit),
+            (-4.5*self.unit,  4.5*self.unit),
+            ( 4.5*self.unit,  4.5*self.unit),
+            ( 4.5*self.unit, -4.5*self.unit),
+        ]
+        
+        vert_cent = [
+            (-12.5*self.unit, -12.5*self.unit),
+            (-12.5*self.unit,  12.5*self.unit),
+            ( 12.5*self.unit,  12.5*self.unit),
+            ( 12.5*self.unit, -12.5*self.unit),
+        ]
+        for ctrs in vert_cent:
+            for i in range(-1, len(vert_out)-1):
+                self.world.CreateStaticBody(
+                    shapes=b2EdgeShape(vertices=[(vert_out[i-1][0]+ctrs[0], vert_out[i-1][1]+ctrs[1]), (vert_out[i][0]+ctrs[0], vert_out[i][1]+ctrs[1])])
+                )
+        
+
+    def map3(self):
+        vert = [
+            ( -25*self.unit, -25*self.unit ),
+            ( -25*self.unit,  25*self.unit ),
+            (  25*self.unit,  25*self.unit ),
+            (  25*self.unit, -25*self.unit ),
+        ]
+
+        for i in range(-1, len(vert)-1):
+            self.world.CreateStaticBody(
+                shapes=b2EdgeShape(vertices=[vert[i-1], vert[i]])
+            )
+
+        wall1 = [
+            (  -25*self.unit, 0*self.unit),
+            (   -5*self.unit, 0*self.unit),
+        ]
+
+        wall2 = [
+            (  5*self.unit, -25*self.unit),
+            (  5*self.unit, -15*self.unit),
+        ]
+
+        self.world.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=wall1)
+        )
+
+        self.world.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=wall2)
+        )
+
+    def map4(self):
+        vert = [
+            ( -25*self.unit, -25*self.unit ),
+            ( -25*self.unit,  25*self.unit ),
+            (  25*self.unit,  25*self.unit ),
+            (  25*self.unit,  10*self.unit ),
+            ( -10*self.unit,  10*self.unit ),
+            ( -10*self.unit, -25*self.unit ),
+            # (  25*self.unit, -25*self.unit ),
+        ]
+
+        for i in range(-1, len(vert)-1):
+            self.world.CreateStaticBody(
+                shapes=b2EdgeShape(vertices=[vert[i-1], vert[i]])
+            )
+        
+        wall1 = [
+            (  -10*self.unit, 25*self.unit),
+            (  -10*self.unit, 23*self.unit),
+        ]
+
+        wall2 = [
+            (  -10*self.unit, 12*self.unit),
+            (  -10*self.unit, 10*self.unit),
+        ]
     
-    
+        self.world.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=wall1)
+        )
+
+        self.world.CreateStaticBody(
+            shapes=b2EdgeShape(vertices=wall2)
+        )
         
 
     def render(self, mode='human',close=False):
