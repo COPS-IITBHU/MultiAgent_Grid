@@ -171,7 +171,7 @@ class grid(gym.Env):
 
     def path_status(self):                          #check colliding points on the path
         cnt = 1
-        for i in range(len(self.path_a[0])):
+        for i in range(len(self.path_a[6])):
             
             r1 = b2Vec2(self.path_a[0][i])-b2Vec2(self.path_a[0][i-1])
             #self.world2.RayCast(self.call_back,b2Vec2(self.path_a[0][i-1]),b2Vec2(self.path_a[0][i-1])+ (ray/ray.length)*1.1*self.radius)
@@ -226,7 +226,7 @@ class grid(gym.Env):
                 position = (i +b2Vec2(1.7,1.25) ) * self.ppm
                 position = (position[0], self.screen_height - position[1])
                 pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))"""
-        for i in self.path_a[0]:
+        for i in self.path_a[6]:
                 position = (i +b2Vec2(1.7,1.25) ) * self.ppm
                 position = (position[0], self.screen_height - position[1])
                 pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
@@ -396,7 +396,7 @@ class grid(gym.Env):
         self.world = world(gravity=(0,0),contactListener=ContactDetector(self))
         self.world2 = world(gravity=(0,0))
 
-        self.dummy_walls()
+        self.walls()
         # Initial position of bots
         self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
                             (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
@@ -863,7 +863,7 @@ class grid(gym.Env):
 
         self.screen.fill((0,0,0,0))
 
-        for body in self.world2.bodies:
+        for body in self.world.bodies:
             for fixture in body.fixtures:
                 fixture.shape.draw(body,fixture)
 
