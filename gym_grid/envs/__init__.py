@@ -1,0 +1,1 @@
+from gym_grid.envs.grid_2d import grid
