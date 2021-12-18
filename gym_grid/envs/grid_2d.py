@@ -65,7 +65,7 @@ class ContactDetector(contactListener):
         self.env=env
 
     def BeginContact(self,contact):
-        #print("collision!")
+        """print("collision!")
         if contact.fixtureA.body.userData != None :
             self.env.reward[contact.fixtureA.body.userData] -= 10
 
@@ -74,8 +74,8 @@ class ContactDetector(contactListener):
 
         
         #print(contact.fixtureA.body.userData)
-        #print(contact.fixtureB.body.userData)
-        #self.env.reward =  self.env.reward - 10
+        #print(contact.fixtureB.body.userData)"""
+        self.env.reward =  self.env.reward - 10
         
 
 
@@ -111,19 +111,18 @@ class grid(gym.Env):
         self.time_step = 1./self.fps*self.sfr
 
         high_a = np.array([[(45.0*self.unit,40.0*self.unit),(45.0*self.unit,40.0*self.unit)] for i in range(self.num_agents)])
-        high_b = np.array([(45.0*self.unit,40.0*self.unit) for i in range(self.num_agents)])
-
+        high_b = np.array([(45.0*self.unit,40.0*self.unit) for i in range(self.n_points)] )
         self.action_space = spaces.Box(-high_a,high_a,
         dtype=np.float64,
         shape=(self.num_agents,2,2)    
             )
         
-        self.observation_space = spaces.Box(
+        """self.observation_space = spaces.Box(
             -high_b,
             high_b,
             dtype=np.float64,
             shape=(self.num_agents,2)    
-        )
+        )"""
 
         
 
@@ -221,15 +220,15 @@ class grid(gym.Env):
 
     def draw_path(self):
 
-        """for ind_path in self.path_a:
+        for ind_path in self.path_a:
             for i in ind_path:
                 position = (i +b2Vec2(1.7,1.25) ) * self.ppm
                 position = (position[0], self.screen_height - position[1])
-                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))"""
-        for i in self.path_a[6]:
+                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
+        """for i in self.path_a[6]:
                 position = (i +b2Vec2(1.7,1.25) ) * self.ppm
                 position = (position[0], self.screen_height - position[1])
-                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))
+                pygame.draw.circle(self.screen,(169,169,169.255) , [(x) for x in position], (self.epsilon /2* self.ppm))"""
         
 
         
@@ -237,10 +236,11 @@ class grid(gym.Env):
 
 
 
-    def step(self):
+    def step(self,action):
 
-        #for i in range(8):
-            #self.path[i] = calc_bezier_path(self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i])
+        for i in range(8):
+            
+            self.path[i] = calc_bezier_path(np.array([self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i]]),n_points=800)
 
         
         running = True
@@ -278,15 +278,19 @@ class grid(gym.Env):
             steps = (steps+1)
             if steps*self.time_step > 30:
                 raise RuntimeError("environment timestep exceeded 30 seconds")
+                finished = True
         self.world.Step(self.time_step,10,10)
         self.world.ClearForces()
-        observation = np.array([np.array(agent.position) for agent in self.agents])
+        observation = np.array([np.array(bots.position) for bots in self.agents])
         status = self.status()
         if all(self.status()):
             done = True
-        #for i in status:
-         #   if i == 1:
-          #      self.reward = self.reward + 1
+       
+        for i in status:
+            if i == 1:
+                self.reward = self.reward + 1
+        reward = self.reward
+        return observation,reward,done,{}
 
         
         
@@ -430,7 +434,7 @@ class grid(gym.Env):
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
         self.iter = 1
-        self.reward = np.zeros((8))
+        self.reward = 0
         
         row1 = [((-36 + 12 * i) * self.unit, 36 * self.unit) for i in range(7)]
         row2 = [((-36 + 24 * i) * self.unit, 24 * self.unit) for i in range(4)]
@@ -467,6 +471,7 @@ class grid(gym.Env):
         #print(self.path.shape)
 
         self.path_status()
+        return np.array([np.array(bots.position) for bots in self.agents])
         
 
     
