@@ -68,5 +68,5 @@ def bezier(t, control_points):
         res = res + bernstein_poly(n, i, t) * control_points[i]"""
 
 
-    return np.sum([bernstein_poly(n, i, t) * control_points[i] for i in range(n + 1)], axis=0)
+    return np.sum([int(bernstein_poly(n, i, t)) * control_points[i] for i in range(n + 1)], axis=0)
     
