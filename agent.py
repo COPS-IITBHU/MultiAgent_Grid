@@ -9,12 +9,13 @@ class Agent:
         self.args = args
         self.agent_id = agent_id
         self.policy = MADDPG(args, agent_id)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def select_action(self, o, noise_rate, epsilon):
         if np.random.uniform() < epsilon:
             u = np.random.uniform(-self.args.high_action, self.args.high_action, self.args.action_shape[self.agent_id])
         else:
-            inputs = torch.tensor(o, dtype=torch.float32).unsqueeze(0)
+            inputs = torch.tensor(o, dtype=torch.float32, device = self.device).unsqueeze(0)
             pi = self.policy.actor_network(inputs).squeeze(0)
             # print('{} : {}'.format(self.name, pi))
             u = pi.cpu().numpy()

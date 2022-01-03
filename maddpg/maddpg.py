@@ -8,14 +8,16 @@ class MADDPG:
         self.args = args
         self.agent_id = agent_id
         self.train_step = 0
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
         # create the network
-        self.actor_network = Actor(args, agent_id)
-        self.critic_network = Critic(args)
+        self.actor_network = Actor(args, agent_id).to(self.device)
+        self.critic_network = Critic(args).to(self.device)
 
         # build up the target network
-        self.actor_target_network = Actor(args, agent_id)
-        self.critic_target_network = Critic(args)
+        self.actor_target_network = Actor(args, agent_id).to(self.device)
+        self.critic_target_network = Critic(args).to(self.device)
 
         # load the weights into the target networks
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
@@ -38,8 +40,8 @@ class MADDPG:
 
         # 加载模型
         if os.path.exists(self.model_path + '/actor_params.pkl'):
-            self.actor_network.load_state_dict(torch.load(self.model_path + '/actor_params.pkl'))
-            self.critic_network.load_state_dict(torch.load(self.model_path + '/critic_params.pkl'))
+            self.actor_network.load_state_dict(torch.load(self.model_path + '/actor_params.pkl'), map_location=self.device)
+            self.critic_network.load_state_dict(torch.load(self.model_path + '/critic_params.pkl'), map_location=self.device)
             print('Agent {} successfully loaded actor_network: {}'.format(self.agent_id,
                                                                           self.model_path + '/actor_params.pkl'))
             print('Agent {} successfully loaded critic_network: {}'.format(self.agent_id,
@@ -56,7 +58,7 @@ class MADDPG:
     # update the network
     def train(self, transitions, other_agents):
         for key in transitions.keys():
-            transitions[key] = torch.tensor(transitions[key], dtype=torch.float32)
+            transitions[key] = torch.tensor(transitions[key], dtype=torch.float32, device = self.device)
         r = transitions['r_%d' % self.agent_id]  # 训练时只需要自己的reward
         o, u, o_next = [], [], []  # 用来装每个agent经验中的各项
         for agent_id in range(self.args.n_agents):

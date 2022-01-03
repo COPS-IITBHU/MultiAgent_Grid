@@ -65,7 +65,7 @@ class ContactDetector(contactListener):
         self.env=env
 
     def BeginContact(self,contact):
-        """print("collision!")
+        #print("collision!")
         if contact.fixtureA.body.userData != None :
             self.env.reward[contact.fixtureA.body.userData] -= 10
 
@@ -74,8 +74,8 @@ class ContactDetector(contactListener):
 
         
         #print(contact.fixtureA.body.userData)
-        #print(contact.fixtureB.body.userData)"""
-        self.env.reward =  self.env.reward - 10
+        #print(contact.fixtureB.body.userData)
+        #self.env.reward =  self.env.reward - 10
         
 
 
@@ -158,7 +158,7 @@ class grid(gym.Env):
         cnt = 0
         list = np.zeros((8))
         for i in range(8):
-            if math.sqrt((self.agents[i].position[0]-self.target_pos[i][0])**2 + (self.agents[i].position[1]-self.target_pos[i][1])**2)<=  self.epsilon :
+            if math.sqrt((self.agents[i].position[0]-self.target_pos[i][0])**2 + (self.agents[i].position[1]-self.target_pos[i][1])**2)<=  4*self.epsilon :
                 #cnt = cnt+1
                 list[i] = 1
         return list
@@ -237,10 +237,28 @@ class grid(gym.Env):
 
 
     def step(self,action):
+        
 
-        for i in range(8):
-            
-            self.path[i] = calc_bezier_path(np.array([self.initial_pos[i], action[i][0], action[i][1], self.target_pos[i]]),n_points=800)
+        self.path = np.zeros((8,self.n_points,2))
+        for i in range(8):           
+            self.path[i] = calc_bezier_path(np.array([self.initial_pos[i], [action[i][0],action[i][1]],[action[i][2],action[i][3]],[action[i][4],action[i][5]], self.target_pos[i]]),n_points=800)
+
+        self.path_a =self.path                               #before transpose : size-> (8,n_points,2)
+        self.path = np.transpose(self.path, (1, 0, 2))       #after transpose  : size-> (n_points,8,2)"""
+        observation = []
+        """temp = []
+        for i in self.path_a:
+            for j in range(800):
+                if j % 8 == 0:
+                    temp.extend([i[j][0],i[j][1]])
+                    
+            observation.append(temp)
+            temp = []
+
+        observation = np.array(observation)"""
+
+
+        
 
         
         running = True
@@ -264,11 +282,12 @@ class grid(gym.Env):
                 force_mag = self.max_force*(1 - vel_mag/self.max_velocity)
                 force = force_mag*direction  
                 agent.ApplyForce(force = force,point=agent.position,wake=True)
-                self.iter = self.iter + 1
+                
                 #print(self.reward)
                 if self.iter == self.n_points-1 :
                     finished = True
                     break
+                self.iter = self.iter + 1
                 
                 
 
@@ -281,15 +300,18 @@ class grid(gym.Env):
                 finished = True
         self.world.Step(self.time_step,10,10)
         self.world.ClearForces()
-        observation = np.array([np.array(bots.position) for bots in self.agents])
+        #observation = np.array([np.array(bots.position) for bots in self.agents])
+        #observation = self.path_a
         status = self.status()
+        done = False
         if all(self.status()):
             done = True
        
-        for i in status:
-            if i == 1:
-                self.reward = self.reward + 1
+        for i in range(8):
+            if status[i] == 1:
+                self.reward[i] = self.reward[i] + 1
         reward = self.reward
+        
         return observation,reward,done,{}
 
         
@@ -400,10 +422,42 @@ class grid(gym.Env):
         self.world = world(gravity=(0,0),contactListener=ContactDetector(self))
         self.world2 = world(gravity=(0,0))
 
+        row1 = [((-36 + 12 * i) * self.unit, 36 * self.unit) for i in range(7)]
+        row2 = [((-36 + 24 * i) * self.unit, 24 * self.unit) for i in range(4)]
+        row3 = [((-36 + 12 * i) * self.unit, 12 * self.unit) for i in range(7)]
+        row4 = [((-36 + 24 * i) * self.unit, 0 * self.unit) for i in range(4)]
+        row5 = [((-36 + 12 * i) * self.unit, -12 * self.unit) for i in range(7)]
+        row6 = [((-36 + 24 * i) * self.unit, -24 * self.unit) for i in range(4)]
+        row7 = [((-36 + 12 * i) * self.unit, -36 * self.unit) for i in range(7)]
+
+        self.grid_centres = row1 + row2 + row3 + row4 + row5 + row6 + row7
+        
+
+        target = np.zeros((8,2))
+        spawn = np.zeros((8,2))
+
+        grid_num = np.random.choice(40,8,replace=False)
+        for i in range(8):
+            target[i] = self.grid_centres[grid_num[i]]
+            target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
+            target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
+
+        grid_num_spawn = np.random.choice(40,8,replace=False)
+        for i in range(8):
+            spawn[i] = self.grid_centres[grid_num_spawn[i]]
+            spawn[i][0] = spawn[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
+            spawn[i][1] = spawn[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
+
+
+        
+
+        self.target_pos = target
+        self.initial_pos = spawn
+
         self.walls()
         # Initial position of bots
-        self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
-                            (6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
+        #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(7.5*6*0.0254, -1.5*6*0.0254),(-7.5*6*0.0254, -1.5*6*0.0254),
+                            #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
 
         #self.initial_pos=[(7.5*6*0.0254, 1.5*6*0.0254),(-7.5*6*0.0254, 1.5*6*0.0254),(-8*0.0254,0),(-7.5*6*0.0254, -1.5*6*0.0254),
                             #(6.5*6*0.0254, 2.5*6*0.0254),(-6.5*6*0.0254, 2.5*6*0.0254),(6.5*6*0.0254, -2.5*6*0.0254),(-6.5*6*0.0254, -2.5*6*0.0254)]
@@ -434,44 +488,33 @@ class grid(gym.Env):
         self.collide=[0]*self.num_agents
         self.world.gravity=(0,0)
         self.iter = 1
-        self.reward = 0
+        self.reward = np.zeros((8))
         
-        row1 = [((-36 + 12 * i) * self.unit, 36 * self.unit) for i in range(7)]
-        row2 = [((-36 + 24 * i) * self.unit, 24 * self.unit) for i in range(4)]
-        row3 = [((-36 + 12 * i) * self.unit, 12 * self.unit) for i in range(7)]
-        row4 = [((-36 + 24 * i) * self.unit, 0 * self.unit) for i in range(4)]
-        row5 = [((-36 + 12 * i) * self.unit, -12 * self.unit) for i in range(7)]
-        row6 = [((-36 + 24 * i) * self.unit, -24 * self.unit) for i in range(4)]
-        row7 = [((-36 + 12 * i) * self.unit, -36 * self.unit) for i in range(7)]
-
-        self.grid_centres = row1 + row2 + row3 + row4 + row5 + row6 + row7
         
 
-        target = np.zeros((8,2))
-
-        grid_num = np.random.choice(40,8,replace=False)
-        for i in range(8):
-            target[i] = self.grid_centres[grid_num[i]]
-            target[i][0] = target[i][0] + np.random.uniform(-3*self.unit,3*self.unit,1)
-            target[i][1] = target[i][1] + np.random.uniform(-3*self.unit,3*self.unit,1)
-
-        
-
-        self.target_pos = target
-
-        self.path = np.zeros((8,self.n_points,2))
+        """self.path = np.zeros((8,self.n_points,2))
         for i in range(8):
             temp = calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.15, self.target_pos[i][0],self.target_pos[i][1], 0.15, 3, self.n_points)
             self.path[i] = temp[0]
         #np.concatenate((calc_4points_bezier_path(self.initial_pos[i][0],self.initial_pos[i][1], 0.52, self.target_pos[i][0],self.target_pos[i][1], 0.52, 0.1) for i in range(8)), out = self.path  
         
         self.path_a =self.path                               #before transpose : size-> (8,n_points,2)
-        self.path = np.transpose(self.path, (1, 0, 2))       #after transpose  : size-> (n_points,8,2)
+        self.path = np.transpose(self.path, (1, 0, 2))       #after transpose  : size-> (n_points,8,2)"""
         #print(self.path_a.shape)
         #print(self.path.shape)
 
-        self.path_status()
-        return np.array([np.array(bots.position) for bots in self.agents])
+        #self.path_status()
+        ret = []
+        
+        for i in range(8):
+            ret.append([self.initial_pos[i][0],self.initial_pos[i][1],self.target_pos[i][0],self.target_pos[i][1]])
+
+        ret = np.array(ret)
+        
+        
+        
+
+        return ret
         
 
     
@@ -873,7 +916,7 @@ class grid(gym.Env):
                 fixture.shape.draw(body,fixture)
 
         self.draw_marker()
-        self.draw_path()
+        #self.draw_path()
 
         
 

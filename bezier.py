@@ -63,10 +63,12 @@ def bezier(t, control_points):
     :return: (numpy array) Coordinates of the point
     """
     n = len(control_points) - 1
-    """res = 0
+    res = 0.0
     for i in range(n + 1):
-        res = res + bernstein_poly(n, i, t) * control_points[i]"""
+        res = res + bernstein_poly(n, i, t) * control_points[i]
 
+    
 
-    return np.sum([int(bernstein_poly(n, i, t)) * control_points[i] for i in range(n + 1)], axis=0)
+    #return np.sum([int(bernstein_poly(n, i, t)) * control_points[i] for i in range(n + 1)], axis=0)
+    return res
     

@@ -20,10 +20,10 @@ if __name__ == '__main__':
     for content in env.action_space:
         action_shape.append(content.n)
     args.action_shape = action_shape[:args.n_agents]"""
-    args.obs_shape = [2]*8
-    args.action_shape = [2]*8
-    args.high_action = 1
-    args.low_action = -1
+    args.obs_shape = [4]*8
+    args.action_shape = [6]*8
+    args.high_action = 2
+    args.low_action = -2
 
     runner = Runner(args, env)
     if args.evaluate:

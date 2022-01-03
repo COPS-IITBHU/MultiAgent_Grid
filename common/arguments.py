@@ -10,8 +10,8 @@ def get_args():
     parser = argparse.ArgumentParser("Reinforcement Learning experiments for multiagent environments")
     # Environment
     parser.add_argument("--scenario-name", type=str, default="simple_tag", help="name of the scenario script")
-    parser.add_argument("--max-episode-len", type=int, default=800, help="maximum episode length")
-    parser.add_argument("--time-steps", type=int, default=800000, help="number of time steps")
+    parser.add_argument("--max-episode-len", type=int, default=1, help="maximum episode length")#Set to 1 to accomodate Hierarchal training
+    parser.add_argument("--time-steps", type=int, default=100000, help="number of time steps")#For Hierarchal -> Number of episodes
     # 一个地图最多env.n个agents，用户可以定义min(env.n,num-adversaries)个敌人，剩下的是好的agent
     parser.add_argument("--num-adversaries", type=int, default=0, help="number of adversaries")
     # Core training parameters
@@ -25,14 +25,14 @@ def get_args():
     parser.add_argument("--batch-size", type=int, default=256, help="number of episodes to optimize at the same time")
     # Checkpointing
     parser.add_argument("--save-dir", type=str, default="./model", help="directory in which training state and model should be saved")
-    parser.add_argument("--save-rate", type=int, default=100, help="save model once every time this many episodes are completed")
+    parser.add_argument("--save-rate", type=int, default=10000, help="save model once every time this many episodes are completed")
     parser.add_argument("--model-dir", type=str, default="", help="directory in which training state and model are loaded")
 
     # Evaluate
     parser.add_argument("--evaluate-episodes", type=int, default=10, help="number of episodes for evaluating")
-    parser.add_argument("--evaluate-episode-len", type=int, default=800, help="length of episodes for evaluating")
+    parser.add_argument("--evaluate-episode-len", type=int, default=1, help="length of episodes for evaluating")
     parser.add_argument("--evaluate", type=bool, default=False, help="whether to evaluate the model")
-    parser.add_argument("--evaluate-rate", type=int, default=100, help="how often to evaluate model")
+    parser.add_argument("--evaluate-rate", type=int, default=10, help="how often to evaluate model")
     args = parser.parse_args()
 
     return args

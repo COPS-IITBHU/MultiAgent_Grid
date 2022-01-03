@@ -16,7 +16,8 @@ class Runner:
         self.env = env
         self.agents = self._init_agents()
         self.buffer = Buffer(args)
-        self.save_path = self.args.save_dir + '/' + self.args.scenario_name
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.save_path = self.args.save_dir + '/' 
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
@@ -31,8 +32,11 @@ class Runner:
         returns = []
         for time_step in tqdm(range(self.args.time_steps)):
             # reset the environment
-            if time_step % self.episode_limit == 0:
+            """if time_step % self.episode_limit == 0:
+                s = self.env.reset()"""
+            if time_step == 0:
                 s = self.env.reset()
+
             u = []
             actions = []
             with torch.no_grad():
@@ -43,6 +47,7 @@ class Runner:
             for i in range(self.args.n_agents, self.args.n_players):
                 actions.append([0, np.random.rand() * 2 - 1, 0, np.random.rand() * 2 - 1, 0])
             s_next, r, done, info = self.env.step(actions)
+            s_next = self.env.reset()
             self.buffer.store_episode(s[:self.args.n_agents], u, r[:self.args.n_agents], s_next[:self.args.n_agents])
             s = s_next
             if self.buffer.current_size >= self.args.batch_size:
@@ -51,13 +56,13 @@ class Runner:
                     other_agents = self.agents.copy()
                     other_agents.remove(agent)
                     agent.learn(transitions, other_agents)
-            """if time_step > 0 and time_step % self.args.evaluate_rate == 0:
+            if time_step > 0 and time_step % self.args.evaluate_rate == 0:
                 returns.append(self.evaluate())
                 plt.figure()
                 plt.plot(range(len(returns)), returns)
                 plt.xlabel('episode * ' + str(self.args.evaluate_rate / self.episode_limit))
                 plt.ylabel('average returns')
-                plt.savefig(self.save_path + '/plt.png', format='png')"""
+                plt.savefig(self.save_path + '/plt.png', format='png')
             self.noise = max(0.05, self.noise - 0.0000005)
             self.epsilon = max(0.05, self.epsilon - 0.0000005)
             np.save(self.save_path + '/returns.pkl', returns)
@@ -69,7 +74,7 @@ class Runner:
             s = self.env.reset()
             rewards = 0
             for time_step in range(self.args.evaluate_episode_len):
-                self.env.render()
+                #self.env.render()
                 actions = []
                 with torch.no_grad():
                     for agent_id, agent in enumerate(self.agents):
@@ -78,8 +83,10 @@ class Runner:
                 for i in range(self.args.n_agents, self.args.n_players):
                     actions.append([0, np.random.rand() * 2 - 1, 0, np.random.rand() * 2 - 1, 0])
                 s_next, r, done, info = self.env.step(actions)
-                rewards += r[0]
+                rewards += sum(r)
                 s = s_next
             returns.append(rewards)
             print('Returns is', rewards)
-        return sum(returns) / self.args.evaluate_episodes
+        eval = sum(returns) / self.args.evaluate_episodes
+        print('Average = {:.2f}'.format(eval))
+        return eval
