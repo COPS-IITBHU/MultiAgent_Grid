@@ -28,7 +28,7 @@ The reward structure is as follows:
 
 
 ## Setup
-<hr>
+
 
 ``` console
 git clone 'link'
@@ -36,7 +36,7 @@ cd 'repo_name'
 pip install -e .
 ```
 ## Training
-<hr>
+
 
 
 ``` console
@@ -44,7 +44,7 @@ python train.py
 ```
 
 ## Evaluation
-<hr>
+
 
 ```console
 python eval.py
