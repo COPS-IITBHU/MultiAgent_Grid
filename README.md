@@ -14,7 +14,7 @@ We use Multi Agent Deep Deterministic Policy Gradient to train agents on our cus
 
 |<img src="./img/1.png" />|<img src="./img/2.png" width ="50%"  />|
 | -------------- | --------------- |
-| Algorithm      |  Environemnt    |
+| Algorithm      |  Environment    |
 
 In our setup, we take action as the control points for planning our trajectory using bezier curves.The trajectory followed by the agent is taken as observation.
 <br>
