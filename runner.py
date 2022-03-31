@@ -32,10 +32,11 @@ class Runner:
         returns = []
         for time_step in tqdm(range(self.args.time_steps)):
             # reset the environment
-            """if time_step % self.episode_limit == 0:
-                s = self.env.reset()"""
-            if time_step == 0:
+            #print(time_step)
+            if time_step % self.episode_limit == 0:
                 s = self.env.reset()
+            """if time_step == 0:
+                s = self.env.reset()"""
 
             u = []
             actions = []
@@ -47,7 +48,7 @@ class Runner:
             for i in range(self.args.n_agents, self.args.n_players):
                 actions.append([0, np.random.rand() * 2 - 1, 0, np.random.rand() * 2 - 1, 0])
             s_next, r, done, info = self.env.step(actions)
-            s_next = self.env.reset()
+            #s_next = self.env.reset()
             self.buffer.store_episode(s[:self.args.n_agents], u, r[:self.args.n_agents], s_next[:self.args.n_agents])
             s = s_next
             if self.buffer.current_size >= self.args.batch_size:
@@ -56,7 +57,7 @@ class Runner:
                     other_agents = self.agents.copy()
                     other_agents.remove(agent)
                     agent.learn(transitions, other_agents)
-            if time_step > 0 and time_step % self.args.evaluate_rate == 0:
+            if time_step > 0 and (time_step+1) % self.args.evaluate_rate == 0:
                 returns.append(self.evaluate())
                 plt.figure()
                 plt.plot(range(len(returns)), returns)

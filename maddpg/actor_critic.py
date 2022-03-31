@@ -8,10 +8,10 @@ class Actor(nn.Module):
     def __init__(self, args, agent_id):
         super(Actor, self).__init__()
         self.max_action = args.high_action
-        self.fc1 = nn.Linear(args.obs_shape[agent_id], 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.action_out = nn.Linear(64, args.action_shape[agent_id])
+        self.fc1 = nn.Linear(args.obs_shape[agent_id], 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 32)
+        self.action_out = nn.Linear(32, args.action_shape[agent_id])
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -26,10 +26,10 @@ class Critic(nn.Module):
     def __init__(self, args):
         super(Critic, self).__init__()
         self.max_action = args.high_action
-        self.fc1 = nn.Linear(sum(args.obs_shape) + sum(args.action_shape), 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.q_out = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(sum(args.obs_shape) + sum(args.action_shape), 512)
+        self.fc2 = nn.Linear(512, 128)
+        self.fc3 = nn.Linear(128, 32)
+        self.q_out = nn.Linear(32, 1)
 
     def forward(self, state, action):
         state = torch.cat(state, dim=1)
