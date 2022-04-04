@@ -31,9 +31,9 @@ The reward structure is as follows:
 
 
 ``` console
-git clone 'link'
-cd 'repo_name'
-pip install -e .
+git clone https://github.com/COPS-IITBHU/MultiAgent_Grid.git
+cd MultiAgent_Grid
+pip install requirements.txt
 ```
 ## Training
 
